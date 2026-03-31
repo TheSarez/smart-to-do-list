@@ -1,0 +1,1142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Task Manager</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;outline:none !important;}
+:root{
+  --face:#c0c0c0;
+  --light:#ffffff;
+  --mid:#808080;
+  --dark:#404040;
+  --black:#000000;
+  --navy:#000080;
+  --f:Tahoma,'MS Sans Serif',sans-serif;
+  --fm:'Courier New',monospace;
+  --lb-bg:#ffffff;
+  --lb-drop:#e8eeff;
+}
+.night{
+  --face:#2d2d2d;
+  --light:#4a4a4a;
+  --mid:#555555;
+  --dark:#1a1a1a;
+  --black:#e0e0e0;
+  --navy:#1a3a6e;
+  --lb-bg:#1e1e1e;
+  --lb-drop:#1e2a42;
+  color:#e0e0e0;
+}
+.night .listbox{background:#1e1e1e;color:#e0e0e0;}
+.night .row:hover:not(.sel){background:#2a3a5e;}
+.night .row{border-bottom-color:#333;}
+.night .rtxt{color:#e0e0e0;}
+.night .rtime{color:#999;}
+.night input[type=text]{background:#1e1e1e;color:#e0e0e0;}
+.night .edit-panel textarea{background:#1e1e1e;color:#e0e0e0;}
+.night .edit-panel input[type=text]{background:#1e1e1e;color:#e0e0e0;}
+.night .titlebar{background:linear-gradient(to right,#001040,#0a4a80);}
+.night .term-titlebar{background:linear-gradient(to right,#001040,#0a4a80);}
+.night .terminal{background:#000;}
+.night .rdur{color:#888;}
+.night .rtime.overdue{color:#ff6666;}
+
+html,body{
+  width:100%;height:100%;
+  overflow:hidden;
+  font-family:var(--f);font-size:14px;color:var(--black);
+  background:var(--face);
+}
+.app{display:flex;flex-direction:column;width:100%;height:100vh;}
+
+.titlebar{
+  flex-shrink:0;
+  background:linear-gradient(to right,#000080,#1084d0);
+  color:#fff;padding:3px 6px;
+  display:flex;align-items:center;justify-content:space-between;
+  user-select:none;height:28px;
+}
+.title-left{display:flex;align-items:center;gap:5px;font-weight:bold;font-size:13px;}
+.title-clock{font-family:var(--fm);font-size:12px;color:#acd;letter-spacing:0.5px;}
+
+.menubar{
+  flex-shrink:0;display:flex;
+  background:var(--face);
+  border-bottom:1px solid var(--mid);
+  padding:1px 2px 0;position:relative;
+}
+.mitem{padding:2px 8px;font-size:14px;cursor:default;user-select:none;}
+.mitem:hover,.mitem.active{background:var(--navy);color:#fff;}
+
+.mdrop{
+  position:fixed;background:var(--face);
+  border-top:1px solid var(--light);border-left:1px solid var(--light);
+  border-right:1px solid var(--dark);border-bottom:1px solid var(--dark);
+  box-shadow:2px 2px 0 var(--black);min-width:160px;z-index:9998;padding:2px 0;
+}
+.mdi{padding:3px 20px 3px 22px;font-size:14px;cursor:default;user-select:none;position:relative;}
+.mdi:not(.disabled):hover{background:var(--navy);color:#fff;}
+.mdi.disabled{color:var(--mid);}
+.mdsep{height:1px;background:var(--mid);margin:2px 0;}
+
+.main{flex:1;min-height:0;display:flex;}
+.col{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden;}
+
+.swap-bar{width:18px;flex-shrink:0;background:var(--face);position:relative;}
+.swap-btn{
+  position:absolute;top:25%;left:2px;width:14px;height:14px;
+  background:var(--face);
+  border-top:1px solid var(--light);border-left:1px solid var(--light);
+  border-right:1px solid var(--dark);border-bottom:1px solid var(--dark);
+  display:flex;align-items:center;justify-content:center;
+  font-size:8px;cursor:pointer;user-select:none;
+}
+.swap-btn:active{border-color:var(--dark) var(--light) var(--light) var(--dark);}
+
+.plabel{flex-shrink:0;font-size:14px;font-weight:bold;padding:3px 6px;background:var(--face);}
+
+.listbox{
+  flex:1;min-height:0;background:var(--lb-bg,#fff);
+  overflow-y:auto;
+  border:1px solid var(--mid);
+  margin:3px 4px;
+}
+.listbox::-webkit-scrollbar{width:16px;}
+.listbox::-webkit-scrollbar-track{background:var(--face);}
+.listbox::-webkit-scrollbar-thumb{
+  background:var(--face);
+  border-top:1px solid var(--light);border-left:1px solid var(--light);
+  border-right:1px solid var(--dark);border-bottom:1px solid var(--dark);
+}
+.listbox.drop-active{background:var(--lb-drop,#e8eeff);}
+
+.row{
+  display:flex;align-items:center;padding:2px 5px;gap:4px;
+  border-bottom:1px solid #e8e8e8;
+  cursor:default;user-select:none;
+}
+.row:hover:not(.sel){background:#e8eeff;}
+.row.sel{background:var(--navy);color:#fff;}
+.row.sel .rtime{color:#9ab;}
+.row.sel .rdur{color:#9ab;}
+.row.done .rtxt{text-decoration:line-through;color:var(--mid);}
+.row.done.sel .rtxt{color:#a0a0d0;}
+.row.dragging{opacity:0.25;transform:scale(0.97);}
+.drop-line{height:2px;background:var(--navy);margin:0 3px;}
+
+/* ── Suggested task highlight ─────────────────────────────────────────────── */
+.row.suggested{background:#008689 !important;color:#fff !important;}
+.row.suggested .rtxt{color:#fff !important;}
+.row.suggested .rdur{color:#a0e8ea !important;}
+.row.suggested .rtime{color:#a0e8ea !important;}
+.row.suggested .rtime.overdue{color:#ffddaa !important;}
+.row.suggested:hover:not(.sel){background:#009a9e !important;}
+.row.suggested.sel{background:#005f61 !important;}
+
+.rtxt{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;}
+.rdur{font-size:12px;color:#999;white-space:nowrap;font-family:var(--fm);margin-left:4px;}
+.rtime{font-size:12px;color:#777;white-space:nowrap;font-family:var(--fm);margin-left:4px;}
+.rtime.overdue{color:#cc0000;font-weight:bold;}
+.row.sel .rtime.overdue{color:#ff8888;}
+.empty{padding:10px;color:var(--mid);text-align:center;font-size:13px;}
+
+.right{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden;}
+.rsub{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;}
+
+.edit-panel{
+  flex-shrink:0;padding:3px 4px 2px;
+  display:flex;flex-direction:column;gap:2px;
+}
+.edit-panel textarea{
+  width:100%;height:40px;
+  font-family:var(--f);font-size:13px;
+  background:var(--lb-bg);color:var(--black);
+  border-top:1px solid var(--mid);border-left:1px solid var(--mid);
+  border-right:1px solid var(--light);border-bottom:1px solid var(--light);
+  resize:none;padding:2px 4px;line-height:1.4;
+}
+.night .edit-panel textarea{background:#1e1e1e;color:#e0e0e0;}
+
+.addrow{flex-shrink:0;display:flex;gap:3px;padding:3px 4px;}
+.toolbar{flex-shrink:0;display:flex;gap:3px;padding:2px 4px 3px;justify-content:flex-start;}
+
+input[type=text]{
+  height:26px;padding:1px 4px;
+  font-family:var(--f);font-size:14px;
+  background:var(--lb-bg);color:var(--black);
+  border-top:1px solid var(--mid);border-left:1px solid var(--mid);
+  border-right:1px solid var(--light);border-bottom:1px solid var(--light);
+  outline:none !important;box-shadow:none !important;border-radius:0 !important;
+}
+input:focus{outline:none !important;box-shadow:none !important;}
+.itask{flex:2;min-width:0;}
+.itime{flex:1;min-width:0;}
+
+.btn{
+  height:26px;padding:0 8px;
+  font-family:var(--f);font-size:14px;
+  background:var(--face);color:var(--black);
+  cursor:pointer;white-space:nowrap;
+  border-top:1px solid var(--light);border-left:1px solid var(--light);
+  border-right:1px solid var(--dark);border-bottom:1px solid var(--dark);
+}
+.btn:active{border-color:var(--dark) var(--light) var(--light) var(--dark);padding:1px 7px 0 9px;}
+.btn:hover{background:#d4d0c8;}
+.btn.ai-btn{position:relative;}
+.btn.ai-btn.loading{color:transparent;}
+.btn.ai-btn.loading::after{
+  content:'';position:absolute;left:50%;top:50%;
+  width:8px;height:8px;margin:-4px 0 0 -4px;
+  border:2px solid var(--mid);border-top-color:var(--navy);
+  border-radius:50%;animation:spin 0.6s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.terminal-wrap{
+  flex-shrink:0;background:#000;
+  border-top:2px solid var(--light);border-left:2px solid var(--light);
+  border-right:2px solid var(--dark);border-bottom:2px solid var(--dark);
+  margin:3px 4px 2px;position:relative;resize:vertical;overflow:hidden;
+  display:flex;flex-direction:column;min-height:0;
+}
+.terminal-wrap::before{
+  content:'';
+  position:absolute;bottom:0;left:0;right:0;height:6px;
+  cursor:row-resize;background:linear-gradient(transparent,#333);z-index:1000;
+}
+.terminal-wrap::after{
+  content:'';
+  position:absolute;top:0;left:0;right:0;height:6px;
+  cursor:row-resize;background:linear-gradient(#333,transparent);z-index:1000;
+}
+.terminal-wrap.minimized .terminal,
+.terminal-wrap.minimized .tinput-row{display:none;}
+.term-titlebar{
+  display:flex;align-items:center;
+  background:linear-gradient(to right,#000080,#1084d0);
+  padding:2px 3px;user-select:none;height:24px;gap:3px;
+}
+.term-title-text{flex:1;color:#fff;font-family:var(--f);font-size:14px;font-weight:bold;white-space:nowrap;overflow:hidden;}
+.term-btns{display:flex;gap:2px;margin-left:auto;}
+.term-btn{
+  width:16px;height:14px;background:var(--face);
+  border-top:1px solid var(--light);border-left:1px solid var(--light);
+  border-right:1px solid var(--dark);border-bottom:1px solid var(--dark);
+  display:flex;align-items:center;justify-content:center;
+  font-size:9px;font-family:var(--f);font-weight:bold;
+  cursor:pointer;color:var(--black);flex-shrink:0;
+}
+.term-btn:active{border-color:var(--dark) var(--light) var(--light) var(--dark);}
+.terminal{
+  background:#000;color:#c0c0c0;
+  font-family:var(--fm);font-size:14px;
+  padding:5px 8px;flex:1;min-height:0;overflow-y:auto;line-height:1.5;
+}
+.terminal::-webkit-scrollbar{width:8px;}
+.terminal::-webkit-scrollbar-track{background:#111;}
+.terminal::-webkit-scrollbar-thumb{background:#333;}
+.tline{white-space:pre-wrap;word-break:break-word;color:#c0c0c0;}
+.tline.p{color:#fff;}
+.tline.i{color:#8ec582;}
+.tline.e{color:#ff5555;}
+.tline.a{color:#ffff55;}
+.tinput-row{display:flex;align-items:center;background:#000;padding:2px 8px 4px;flex-shrink:0;}
+.tps{color:#c0c0c0;font-family:var(--fm);font-size:14px;white-space:nowrap;margin-right:4px;}
+.tinput{
+  flex:1;background:#000 !important;color:#c0c0c0;
+  font-family:var(--fm);font-size:14px;
+  outline:none !important;border:none !important;
+  caret-color:#c0c0c0;box-shadow:none !important;
+}
+.tinput:focus{background:#000 !important;outline:none !important;}
+
+.statusbar{
+  flex-shrink:0;display:flex;gap:3px;padding:2px 4px;
+  background:var(--face);border-top:2px solid var(--dark);
+}
+.sp{
+  border-top:1px solid var(--mid);border-left:1px solid var(--mid);
+  border-right:1px solid var(--light);border-bottom:1px solid var(--light);
+  padding:1px 6px;font-size:14px;
+}
+
+.ctx{
+  position:fixed;z-index:9999;background:var(--face);
+  border-top:1px solid var(--light);border-left:1px solid var(--light);
+  border-right:1px solid var(--dark);border-bottom:1px solid var(--dark);
+  box-shadow:2px 2px 0 var(--black);min-width:130px;padding:2px 0;
+}
+.citem{padding:3px 18px 3px 14px;font-size:14px;cursor:default;}
+.citem:hover{background:var(--navy);color:#fff;}
+.csep{height:1px;background:var(--mid);margin:2px 0;}
+
+#rubberBand{
+  position:fixed;pointer-events:none;z-index:9990;
+  border:1px solid var(--navy);background:rgba(0,0,128,0.06);display:none;
+}
+.night #rubberBand{border-color:#5588cc;background:rgba(30,80,180,0.12);}
+
+.dots span{
+  display:inline-block;width:3px;height:3px;background:#ffff55;
+  border-radius:50%;margin:0 1px;vertical-align:middle;animation:dk 1s infinite;
+}
+.dots span:nth-child(2){animation-delay:.2s;}
+.dots span:nth-child(3){animation-delay:.4s;}
+@keyframes dk{0%,80%,100%{opacity:.1}40%{opacity:1}}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="titlebar">
+    <div class="title-left">
+      <svg width="16" height="16" viewBox="0 0 16 16">
+        <rect x="1" y="1" width="10" height="14" fill="#ffffc0" stroke="#000" stroke-width="1"/>
+        <polygon points="9,1 14,6 9,6" fill="#c8c800" stroke="#000" stroke-width="1"/>
+        <rect x="9" y="1" width="5" height="5" fill="#ffffc0" stroke="#000" stroke-width="1"/>
+        <line x1="3" y1="8" x2="11" y2="8" stroke="#000" stroke-width="1"/>
+        <line x1="3" y1="10" x2="11" y2="10" stroke="#000" stroke-width="1"/>
+        <line x1="3" y1="12" x2="8" y2="12" stroke="#000" stroke-width="1"/>
+      </svg>
+      Task Manager
+    </div>
+    <div class="title-clock" id="titleClock">--:-- --</div>
+  </div>
+
+  <div class="menubar" id="menubar">
+    <div class="mitem" onclick="toggleMenu('mFile',this)">File</div>
+    <div class="mitem" onclick="toggleMenu('mEdit',this)">Edit</div>
+    <div class="mitem" onclick="toggleMenu('mSettings',this)">Settings</div>
+    <div class="mitem" onclick="toggleMenu('mHelp',this)">Help</div>
+  </div>
+
+  <div class="mdrop" id="mFile" style="display:none;">
+    <div class="mdi disabled">New…</div>
+    <div class="mdsep"></div>
+    <div class="mdi disabled">Exit</div>
+  </div>
+  <div class="mdrop" id="mEdit" style="display:none;">
+    <div class="mdi" onclick="selectAll()">Select All</div>
+    <div class="mdsep"></div>
+    <div class="mdi" onclick="clearDone();closeMenus()">Clear Done</div>
+  </div>
+  <div class="mdrop" id="mSettings" style="display:none;">
+    <div class="mdi" onclick="toggleNight()">
+      <span id="nightCheck">&#160;</span> Night Mode
+    </div>
+  </div>
+  <div class="mdrop" id="mHelp" style="display:none;">
+    <div class="mdi disabled">About Task Manager</div>
+  </div>
+
+  <div class="main" id="main"></div>
+
+  <div class="terminal-wrap" id="termWrap">
+    <div class="term-titlebar">
+      <svg width="12" height="12" viewBox="0 0 16 16">
+        <rect x="1" y="4" width="14" height="10" fill="#000" stroke="#c0c0c0" stroke-width="1"/>
+        <rect x="3" y="6" width="10" height="2" fill="#00aa00"/>
+        <circle cx="13" cy="7" r="1" fill="#00ff00"/>
+      </svg>
+      <span class="term-title-text">Terminal</span>
+      <div class="term-btns">
+        <div class="term-btn" onclick="termMinimize()" title="Minimize">_</div>
+        <div class="term-btn" id="termRestoreBtn" onclick="termRestore()" title="Restore">▭</div>
+        <div class="term-btn" onclick="termMinimize()" title="Close">✕</div>
+      </div>
+    </div>
+    <div class="terminal" id="termOut"></div>
+    <div class="tinput-row">
+      <span class="tps">&gt;&gt;</span>
+      <input class="tinput" id="termIn" type="text" autocomplete="off" spellcheck="false"/>
+    </div>
+  </div>
+
+  <div class="statusbar">
+    <span class="sp" id="stAll">All: 0</span>
+    <span class="sp" id="stToday">Today: 0</span>
+    <span class="sp" id="stTomorrow">Tomorrow: 0</span>
+    <span class="sp" id="stSel" style="margin-left:auto;">Ready</span>
+  </div>
+
+</div>
+
+<div class="ctx" id="ctx" style="display:none;"></div>
+<div id="rubberBand"></div>
+
+<script>
+// ── Config ────────────────────────────────────────────────────────────────────
+const API = "http://localhost:8000";
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let tasks = [];
+let nid = 1, sel = new Set(), mode = "all";
+let dragIds = [], ghost = null;
+let ktmNow = new Date();
+
+// ── Suggested task highlight state ────────────────────────────────────────────
+let suggestedIds = new Set();
+let suggestClearTimer = null;
+const SUGGEST_DURATION_MS = 5 * 60 * 1000; // 5 minutes
+
+function setSuggestedTasks(ids) {
+  // Cancel any running timer from a previous suggest call
+  if (suggestClearTimer !== null) {
+    clearTimeout(suggestClearTimer);
+    suggestClearTimer = null;
+  }
+  suggestedIds = new Set(ids);
+  render();
+  if (suggestedIds.size > 0) {
+    suggestClearTimer = setTimeout(() => {
+      suggestedIds.clear();
+      suggestClearTimer = null;
+      render();
+      tp("Suggestion highlights cleared (5 min elapsed).", "i");
+    }, SUGGEST_DURATION_MS);
+  }
+}
+
+function clearSuggested() {
+  if (suggestClearTimer !== null) { clearTimeout(suggestClearTimer); suggestClearTimer = null; }
+  suggestedIds.clear();
+}
+
+// ── Task Synchronization ──────────────────────────────────────────────────────
+async function loadTasks() {
+  try {
+    const res = await fetch(`${API}/api/tasks`);
+    const d = await res.json();
+    tasks = d.tasks || [];
+    nid = Math.max(...tasks.map(t => t.id), 0) + 1;
+    render();
+  } catch (err) {
+    console.error("Error loading tasks:", err);
+    tp("Error loading tasks from server.", "e");
+  }
+}
+
+async function saveTasks() {
+  try {
+    const res = await fetch(`${API}/api/tasks`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({tasks})
+    });
+    if (!res.ok) throw new Error("Failed to save");
+    return true;
+  } catch (err) {
+    console.error("Error saving tasks:", err);
+    tp("Error saving tasks to server.", "e");
+    return false;
+  }
+}
+
+// ── Kathmandu Time Sync ───────────────────────────────────────────────────────
+async function syncKtmTime() {
+  try {
+    const res = await fetch(`${API}/api/time`);
+    const d = await res.json();
+    ktmNow = new Date(d.iso);
+    updateClocks();
+  } catch {
+    const now = new Date();
+    const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+    ktmNow = new Date(utc + (5 * 60 + 45) * 60000);
+    updateClocks();
+  }
+}
+
+function updateClocks() {
+  const h = ktmNow.getHours(), m = ktmNow.getMinutes(), s = ktmNow.getSeconds();
+  const ampm = h >= 12 ? "PM" : "AM";
+  const hh = h % 12 || 12;
+  const mm = String(m).padStart(2, "0");
+  const ss = String(s).padStart(2, "0");
+  document.getElementById("titleClock").textContent = `${hh}:${mm}:${ss} ${ampm}`;
+  ktmNow = new Date(ktmNow.getTime() + 1000);
+}
+
+loadTasks();
+syncKtmTime();
+setInterval(syncKtmTime, 30000);
+setInterval(updateClocks, 1000);
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+const byB = b => tasks.filter(t => t.bucket === b);
+const get  = id => tasks.find(t => t.id === id);
+const esc  = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+
+function getTaskDateCategory(task) {
+  if (!task.time) return null;
+  const now = new Date(ktmNow);
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const deadline = parseStoredTime(task.time);
+  if (!deadline) return null;
+  const deadlineDate = new Date(deadline.getFullYear(), deadline.getMonth(), deadline.getDate());
+  if (deadlineDate.getTime() === today.getTime()) return "today";
+  if (deadlineDate.getTime() === tomorrow.getTime()) return "tomorrow";
+  return null;
+}
+
+function dispIntelligent(b) {
+  if (b === "all") return tasks.filter(t => !t.done);
+  return tasks.filter(t => {
+    if (t.bucket === b) return true;
+    return getTaskDateCategory(t) === b;
+  });
+}
+
+const disp = b => b === "all" ? tasks : byB(b);
+
+// ── Drag & Drop ───────────────────────────────────────────────────────────────
+function dstart(e, id) {
+  if (!sel.has(id)) { sel.clear(); sel.add(id); }
+  dragIds = [...sel];
+  e.dataTransfer.effectAllowed = "move";
+  e.dataTransfer.setData("text/plain", "t");
+  const g = document.createElement("div");
+  const t0 = get(dragIds[0]);
+  g.style.cssText = "position:fixed;top:-999px;left:-999px;background:#fff;border:1px solid #000;padding:2px 8px;font:11px Tahoma,sans-serif;box-shadow:2px 2px 0 #000;pointer-events:none;z-index:9999;";
+  g.textContent = dragIds.length > 1 ? `[${dragIds.length} tasks]` : (t0 ? t0.text.slice(0,30) : "");
+  document.body.appendChild(g); ghost = g;
+  e.dataTransfer.setDragImage(g, 0, 0);
+  requestAnimationFrame(() => dragIds.forEach(did => document.querySelector(`[data-id="${did}"]`)?.classList.add("dragging")));
+}
+async function dend() {
+  ghost?.remove(); ghost = null; _lastDrop = null;
+  document.querySelectorAll(".dragging").forEach(el => el.classList.remove("dragging"));
+  document.querySelectorAll(".drop-line").forEach(el => el.remove());
+  document.querySelectorAll(".drop-active").forEach(el => el.classList.remove("drop-active"));
+  dragIds = [];
+  if (tasks) await saveTasks();
+  render();
+}
+let _lastDrop = null;
+function dover(e, id) {
+  e.preventDefault();
+  if (_lastDrop === id) return; _lastDrop = id;
+  document.querySelectorAll(".drop-line").forEach(el => el.remove());
+  const el = document.querySelector(`[data-id="${id}"]`);
+  if (el) { const l = document.createElement("div"); l.className = "drop-line"; el.parentNode.insertBefore(l, el); }
+}
+function doverList(e, b) { e.preventDefault(); document.querySelectorAll(".listbox").forEach(el=>el.classList.remove("drop-active")); document.querySelector(`[data-bucket="${b}"]`)?.classList.add("drop-active"); }
+function dleaveList(b) { document.querySelector(`[data-bucket="${b}"]`)?.classList.remove("drop-active"); }
+function ddrop(e, id, b) { e.preventDefault(); document.querySelectorAll(".drop-line").forEach(el=>el.remove()); finDrop(id, b); }
+function ddropList(e, b) { e.preventDefault(); document.querySelector(`[data-bucket="${b}"]`)?.classList.remove("drop-active"); finDrop(null, b); }
+async function finDrop(targetId, b) {
+  if (!dragIds.length) return;
+  const dragged = dragIds.map(did => get(did)).filter(Boolean);
+  dragged.forEach(t => t.bucket = b);
+  if (targetId !== null) {
+    const rem = tasks.filter(t => !dragIds.includes(t.id));
+    rem.splice(rem.findIndex(t => t.id === targetId), 0, ...dragged);
+    tasks = rem;
+  }
+  dragIds = []; sel.clear();
+  await saveTasks();
+  render();
+}
+
+// ── Context Menu ──────────────────────────────────────────────────────────────
+function showCtx(e, id) {
+  e.preventDefault();
+  if (!sel.has(id)) { sel.clear(); sel.add(id); render(); }
+  const menu = document.getElementById("ctx");
+  const t = get(id), cur = t?.bucket;
+  const items = [];
+  if (cur !== "all")      items.push({l:"Move to All Tasks",  f:()=>moveSelected("all")});
+  if (cur !== "today")    items.push({l:"Move to Today",       f:()=>moveSelected("today")});
+  if (cur !== "tomorrow") items.push({l:"Move to Tomorrow",    f:()=>moveSelected("tomorrow")});
+  items.push(null);
+  items.push({l:"Toggle Done", f:toggleDone});
+  items.push({l:sel.size > 1 ? `Delete (${sel.size})` : "Delete", f:deleteSelected});
+  menu.innerHTML = items.map((x,i) => x===null
+    ? `<div class="csep"></div>`
+    : `<div class="citem" data-i="${i}">${x.l}</div>`).join("");
+  menu.querySelectorAll(".citem").forEach(el => {
+    const i = +el.dataset.i;
+    el.addEventListener("click", () => { items[i].f(); hideCtx(); });
+  });
+  menu.style.display = "block";
+  menu.style.left = Math.min(e.clientX, window.innerWidth-150) + "px";
+  menu.style.top  = Math.min(e.clientY, window.innerHeight-140) + "px";
+}
+function hideCtx() { document.getElementById("ctx").style.display = "none"; }
+document.addEventListener("click", hideCtx);
+document.addEventListener("keydown", e => { if (e.key === "Escape") hideCtx(); });
+
+// ── Row HTML ──────────────────────────────────────────────────────────────────
+function rowHtml(t) {
+  const rem = t.time ? timeRemaining(t.time) : null;
+  const timeDisplay = t.time ? esc(t.time) : "";
+  const remDisplay  = rem ? (rem.overdue ? `Overdue` : esc(rem.str)) : "";
+  const remClass    = rem?.overdue ? "rtime overdue" : "rtime";
+  const durationHtml = t.duration ? ` <span class="rdur">(${esc(t.duration)})</span>` : "";
+  const timeHtml = t.time
+    ? `<span class="${remClass}" data-time="${timeDisplay}" data-rem="${remDisplay}" data-overdue="${rem?.overdue||false}" data-tid="${t.id}">${timeDisplay}</span>`
+    : "";
+  // Only highlight if task is not done
+  const isSuggested = suggestedIds.has(t.id) && !t.done;
+
+  return `<div class="row${t.done?" done":""}${sel.has(t.id)?" sel":""}${isSuggested?" suggested":""}"
+    data-id="${t.id}"
+    onclick="selTask(event,${t.id})"
+    oncontextmenu="showCtx(event,${t.id})"
+    draggable="true"
+    ondragstart="dstart(event,${t.id})"
+    ondragend="dend()"
+    ondragover="dover(event,${t.id})"
+    ondrop="ddrop(event,${t.id},'${t.bucket}')"
+    onmouseenter="rowHover(this,true,${t.id})"
+    onmouseleave="rowHover(this,false,${t.id})">
+    <span class="rtxt">${esc(t.text)}${durationHtml}</span>
+    ${timeHtml}
+  </div>`;
+}
+
+function rowHover(rowEl, entering, id) {
+  const timeEl = rowEl.querySelector(".rtime");
+  if (!timeEl) return;
+  const t = get(id);
+  if (!t || !t.time) return;
+  const rem = timeRemaining(t.time);
+  if (!rem) return;
+  if (entering) {
+    timeEl.textContent = rem.overdue ? "Overdue" : rem.str + " left";
+    timeEl.className = rem.overdue ? "rtime overdue" : "rtime";
+  } else {
+    timeEl.textContent = t.time;
+    timeEl.className = rem.overdue ? "rtime overdue" : "rtime";
+  }
+}
+
+function lbHtml(b) {
+  const items = dispIntelligent(b);
+  return `<div class="listbox" data-bucket="${b}"
+    ondragover="doverList(event,'${b}')"
+    ondragleave="dleaveList('${b}')"
+    ondrop="ddropList(event,'${b}')">
+    ${items.length ? items.map(rowHtml).join("") : `<div class="empty">(empty)</div>`}
+  </div>`;
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function render() {
+  const wrap = document.getElementById("main");
+  const lb = mode === "all" ? "all" : "today";
+  const ll = mode === "all" ? "All Tasks" : "Today";
+
+  const editT = sel.size === 1 ? get([...sel][0]) : null;
+  const editHtml = editT ? `
+    <div class="edit-panel">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin:0 0 2px;">
+        <div class="plabel" style="padding:3px 4px 1px;font-size:11px;color:var(--mid);margin:0;">Edit Task</div>
+        <button style="background:none;border:none;color:var(--mid);cursor:pointer;padding:2px 6px;font-size:14px;font-weight:bold;" onclick="closeEdit()" title="Close">✕</button>
+      </div>
+      <input type="text" id="editTaskName" value="${esc(editT.text)}" placeholder="Task name…" style="width:100%;margin:0 0 2px;"/>
+      <div style="display:flex;gap:3px;">
+        <input type="text" id="editDuration" value="${esc(editT.duration||'')}" placeholder="How long? (e.g. 1h, 30m)" style="flex:1;"/>
+        <input type="text" id="editTime" value="${esc(editT.time)}" placeholder="When?" style="flex:1;"/>
+      </div>
+      <textarea id="editNotes" placeholder="Notes…" style="width:100%;height:40px;margin-top:2px;font-family:var(--f);font-size:13px;background:var(--lb-bg);color:var(--black);border-top:1px solid var(--mid);border-left:1px solid var(--mid);border-right:1px solid var(--light);border-bottom:1px solid var(--light);resize:none;padding:2px 4px;line-height:1.4;">${esc(editT.notes||'')}</textarea>
+      <div style="display:flex;gap:3px;margin-top:2px;">
+        <button class="btn" onclick="saveEditCommit()">Save</button>
+        ${editT.bucket !== "tomorrow" ? `<button class="btn" onclick="moveSelected('tomorrow')">→ Tmrw</button>` : ""}
+      </div>
+    </div>` : "";
+
+  wrap.innerHTML = `
+  <div class="col" id="cLeft">
+    <div class="plabel">${ll}</div>
+    ${lbHtml(lb)}
+    ${editHtml}
+    <div class="toolbar">
+      <button class="btn" onclick="toggleDone()">Done</button>
+      <button class="btn" onclick="deleteSelected()">Delete</button>
+      <button class="btn" onclick="clearDone()">Delete Done</button>
+    </div>
+  </div>
+
+  <div class="swap-bar">
+    <div class="swap-btn" onclick="swapView()" title="Swap view">⇄</div>
+  </div>
+
+  <div class="right" id="cRight">
+    <div class="rsub">
+      <div class="plabel">${mode === "all" ? "Today" : "All Tasks"}</div>
+      ${lbHtml(mode === "all" ? "today" : "all")}
+    </div>
+    <div class="rsub">
+      <div class="plabel">Tomorrow</div>
+      ${lbHtml("tomorrow")}
+      <div class="addrow" style="flex-direction:column;gap:2px;padding:3px 4px;flex-shrink:0;">
+        <input type="text" class="itask" id="inpTask" placeholder="New task name…" style="width:100%;"/>
+        <div style="display:flex;gap:3px;">
+          <input type="text" id="inpDuration" placeholder="How long? (e.g. 1h, 30m)" style="flex:1;"/>
+          <input type="text" class="itime" id="inpTime" placeholder="When?" style="flex:1;"/>
+        </div>
+        <button class="btn ai-btn" id="btnAdd" onclick="addTask()" style="align-self:flex-start;">Add Task</button>
+      </div>
+    </div>
+  </div>`;
+
+  const it = document.getElementById("inpTask");
+  const im = document.getElementById("inpTime");
+  const id = document.getElementById("inpDuration");
+  it?.addEventListener("keydown", e => { if (e.key === "Enter") addTask(); });
+  im?.addEventListener("keydown", e => { if (e.key === "Enter") addTask(); });
+  id?.addEventListener("keydown", e => { if (e.key === "Enter") addTask(); });
+  document.getElementById("editTaskName")?.addEventListener("input", saveEdit);
+
+  document.getElementById("stAll").textContent      = "All: "       + tasks.length;
+  document.getElementById("stToday").textContent    = "Today: "     + dispIntelligent("today").length;
+  document.getElementById("stTomorrow").textContent = "Tomorrow: "  + dispIntelligent("tomorrow").length;
+  document.getElementById("stSel").textContent      = sel.size ? `${sel.size} selected` : "Ready";
+}
+
+// ── Task Actions ──────────────────────────────────────────────────────────────
+function selTask(e, id) {
+  if (e.ctrlKey||e.metaKey) { sel.has(id) ? sel.delete(id) : sel.add(id); }
+  else if (e.shiftKey && sel.size) {
+    const ids = dispIntelligent(mode==="all"?"all":"today").map(t => t.id);
+    const last = [...sel].at(-1), from = ids.indexOf(last), to = ids.indexOf(id);
+    if (from !== -1 && to !== -1) ids.slice(Math.min(from,to), Math.max(from,to)+1).forEach(i => sel.add(i));
+    else { sel.clear(); sel.add(id); }
+  } else {
+    if (sel.has(id) && sel.size === 1) sel.clear();
+    else { sel.clear(); sel.add(id); }
+  }
+  render();
+}
+
+function selectAll() {
+  dispIntelligent(mode==="all"?"all":"today").forEach(t => sel.add(t.id));
+  render(); closeMenus();
+}
+
+function swapView() { mode = mode==="all" ? "today" : "all"; sel.clear(); render(); }
+function closeEdit() { sel.clear(); render(); }
+
+async function moveSelected(b) {
+  if (!sel.size) { tp("No tasks selected.", "e"); return; }
+  sel.forEach(id => { const t = get(id); if (t) t.bucket = b; });
+  await saveTasks();
+  tp(`Moved ${sel.size} task(s) to ${b}.`, "i"); render();
+}
+
+async function addTask() {
+  const it = document.getElementById("inpTask");
+  const im = document.getElementById("inpTime");
+  const id = document.getElementById("inpDuration");
+  const txt = it.value.trim(); if (!txt) return;
+
+  const btn = document.getElementById("btnAdd");
+  if (btn) { btn.classList.add("loading"); btn.disabled = true; }
+
+  let parsed = await aiParseTask(txt + (im?.value ? " at " + im.value : "") + (id?.value ? " for " + id.value : ""));
+
+  const manualTime = im?.value.trim();
+  const manualDur  = id?.value.trim();
+
+  const finalTime = manualTime ? parseTime(manualTime) : parsed.time || "";
+  const finalDur  = parseAndNormalizeDuration(manualDur  || parsed.duration || "");
+  const finalText = parsed.task || txt;
+  const finalNotes= parsed.notes || "";
+
+  const b = mode === "today" ? "today" : "all";
+  tasks.push({id:nid++, text:finalText, done:false, bucket:b, time:finalTime, duration:finalDur, notes:finalNotes});
+
+  it.value = ""; if (im) im.value = ""; if (id) id.value = "";
+  if (btn) { btn.classList.remove("loading"); btn.disabled = false; }
+  await saveTasks();
+  render();
+  tp(`Added: "${finalText}"${finalDur?" ("+finalDur+")":""}${finalTime?" ["+finalTime+"]":""}`, "i");
+}
+
+function saveEdit() {
+  if (sel.size !== 1) return;
+  const ta = document.getElementById("editTaskName"); if (!ta) return;
+  const t = get([...sel][0]); if (!t) return;
+  const v = ta.value.trim(); if (v) t.text = v;
+}
+
+async function saveEditCommit() {
+  if (sel.size !== 1) return;
+  const ta = document.getElementById("editTaskName"); if (!ta) return;
+  const ti = document.getElementById("editTime");
+  const td = document.getElementById("editDuration");
+  const tn = document.getElementById("editNotes");
+  const t  = get([...sel][0]); if (!t) return;
+  const v  = ta.value.trim(); if (v) t.text = v;
+  if (ti) { const timeInput = ti.value.trim(); t.time = timeInput ? parseTime(timeInput) : ""; }
+  if (td) t.duration = parseAndNormalizeDuration(td.value.trim());
+  if (tn) t.notes = tn.value.trim();
+  await saveTasks();
+  render();
+}
+
+async function toggleDone() {
+  if (!sel.size) return;
+  const allDone = [...sel].every(id => get(id)?.done);
+  sel.forEach(id => { const t = get(id); if (t) t.done = !allDone; });
+  await saveTasks();
+  render();
+}
+
+async function deleteSelected() {
+  if (!sel.size) { tp("No tasks selected.", "e"); return; }
+  const n = sel.size; tasks = tasks.filter(t => !sel.has(t.id)); sel.clear();
+  await saveTasks();
+  render();
+  tp(`Deleted ${n} task(s).`, "i");
+}
+
+async function clearDone() {
+  const n = tasks.filter(t => t.done).length; tasks = tasks.filter(t => !t.done); sel.clear();
+  await saveTasks();
+  render();
+  tp(`Removed ${n} completed task(s).`, "i");
+}
+
+// ── Terminal ──────────────────────────────────────────────────────────────────
+const termEl = document.getElementById("termOut");
+let ch = [], hi = -1;
+
+function tp(txt, cls="") {
+  const d = document.createElement("div");
+  d.className = "tline" + (cls ? " "+cls : "");
+  d.textContent = txt;
+  termEl.appendChild(d);
+  termEl.scrollTop = termEl.scrollHeight;
+}
+function tload() {
+  const d = document.createElement("div"); d.className="tline a"; d.id="tld";
+  d.innerHTML = '<span class="dots"><span></span><span></span><span></span></span>';
+  termEl.appendChild(d); termEl.scrollTop = termEl.scrollHeight;
+}
+function tclear() { document.getElementById("tld")?.remove(); }
+
+// summary() accepts an optional task list override for scoped suggest calls
+function summary(taskList) {
+  const list = taskList || tasks;
+  return list.length
+    ? list.map(t=>`[${t.bucket.toUpperCase()}][${t.done?"DONE":"TODO"}]${t.time?" <"+t.time+">":""}${t.duration?" ("+t.duration+")":""}: ${t.text}`).join("\n")
+    : "No tasks.";
+}
+
+async function aiParseTask(input) {
+  const local = localParseTask(input);
+  if (local) return local;
+  const res = await fetch(`${API}/api/ai/parse`, {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({text: input})
+  });
+  const d = await res.json();
+  if (d.detail) throw new Error(d.detail);
+  return d;
+}
+
+async function callGroq(prompt, taskContext="") {
+  const res = await fetch(`${API}/api/ai/chat`, {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({prompt, tasks: taskContext})
+  });
+  const d = await res.json();
+  if (d.detail) throw new Error(d.detail);
+  return d.response;
+}
+
+// ── Suggest handler ───────────────────────────────────────────────────────────
+async function runSuggest(todayOnly) {
+  // Build the pool: today-only or all incomplete tasks
+  const pool = todayOnly
+    ? tasks.filter(t => !t.done && (t.bucket === "today" || getTaskDateCategory(t) === "today"))
+    : tasks.filter(t => !t.done);
+
+  if (!pool.length) {
+    tp(todayOnly ? "No incomplete tasks in Today." : "No incomplete tasks.", "i");
+    clearSuggested();
+    render();
+    return;
+  }
+
+  tload();
+  try {
+    // Append scope note so AI knows the context it's working with
+    const scopeNote = todayOnly
+      ? "\n\nScope: today's tasks only. Only recommend from this list."
+      : "\n\nScope: all tasks across all buckets.";
+    const res = await callGroq(AI_PROMPTS.suggest + scopeNote, summary(pool));
+    tclear();
+
+    const suggested = parseSuggestResponse(res, pool);
+
+    if (!suggested.length) {
+      tp("Could not parse suggestions. Raw response:", "e");
+      res.split("\n").filter(l => l.trim()).forEach(l => tp(l, "a"));
+      return;
+    }
+
+    // Print to terminal
+    const scope = todayOnly ? "today" : "all tasks";
+    tp(`Top ${suggested.length} suggested task(s) from ${scope}:`, "i");
+    suggested.forEach((item, idx) => {
+      const reasoning = item.reasoning ? ` — ${item.reasoning}` : "";
+      tp(`${idx + 1}. ${item.task.text}${reasoning}`, "a");
+    });
+    tp("Highlighted for 5 minutes.", "i");
+
+    // Apply teal highlight; replaces any previous suggestion
+    setSuggestedTasks(suggested.map(s => s.task.id));
+
+  } catch(err) {
+    tclear();
+    tp("Error: " + err.message, "e");
+  }
+}
+
+// ── Commands ──────────────────────────────────────────────────────────────────
+const CMDS = {
+  help() {
+    tp("Commands:", "i");
+    ["list", "add <text>", "done", "delete", "cleardone",
+     "move all|today|tomorrow", "clear",
+     "suggest          (from all tasks)",
+     "suggest today    (from today only)",
+     "analyze", "prioritize"].forEach(c => tp("  " + c));
+  },
+  list() {
+    [["all","All"],["today","Today"],["tomorrow","Tomorrow"]].forEach(([b,l]) => {
+      const items = b==="all" ? tasks : byB(b);
+      tp(`-- ${l} (${items.length}) --`, "i");
+      items.forEach(t => tp(`  ${t.done?"[x]":"[ ]"} ${t.text}${t.duration?" ("+t.duration+")":""}${t.time?" ["+t.time+"]":""}`));
+    });
+  },
+  clear() { termEl.innerHTML=""; },
+  async done()      { await toggleDone(); },
+  async delete()    { await deleteSelected(); },
+  async cleardone() { await clearDone(); },
+  async prioritize() {
+    tload();
+    try {
+      const res = await callGroq(AI_PROMPTS.prioritize, summary());
+      tclear();
+      const incompleteTasks = tasks.filter(t => !t.done);
+      const orderedTasksWithReason = parsePrioritizeResponse(res, incompleteTasks);
+      if (incompleteTasks.length > 0 && orderedTasksWithReason.length === 0) {
+        tp("Could not parse prioritization response. Raw response:", "e");
+        tp(res, "e");
+        return;
+      }
+      if (incompleteTasks.length === 0) { tp("No incomplete tasks to prioritize.", "i"); return; }
+      tp("Top priorities:", "i");
+      orderedTasksWithReason.forEach((item, idx) => {
+        const reasoning = item.reasoning ? ` — ${item.reasoning}` : "";
+        tp(`${idx + 1}. ${item.task.text}${reasoning}`);
+      });
+      const doneTasks = tasks.filter(t => t.done);
+      const orderedTasks = orderedTasksWithReason.map(item => item.task);
+      const unorderedIncomplete = incompleteTasks.filter(t => !orderedTasks.find(ot => ot.id === t.id));
+      tasks = [...orderedTasks, ...unorderedIncomplete, ...doneTasks];
+      await saveTasks();
+      render();
+    } catch(err) {
+      tclear();
+      tp("Error: " + err.message, "e");
+    }
+  }
+};
+
+async function run(raw) {
+  const cmd = raw.trim(); if (!cmd) return;
+  ch.unshift(cmd); hi = -1;
+  tp(">> " + cmd, "p");
+  const low = cmd.toLowerCase();
+  const parts = low.split(/\s+/);
+  const v = parts[0];
+
+  // ── suggest / suggest today ───────────────────────────────────────────────
+  if (v === "suggest") {
+    const todayOnly = parts[1] === "today";
+    await runSuggest(todayOnly);
+    return;
+  }
+
+  if (CMDS[v]) { await CMDS[v](parts.slice(1).join(" ")); return; }
+
+  if (v === "add") {
+    const taskInput = cmd.slice(4).trim();
+    if (!taskInput) { tp("Usage: add <task> [when] [for duration]", "e"); return; }
+    tload();
+    try {
+      const parsed = await aiParseTask(taskInput);
+      const finalText = parsed.task || taskInput;
+      const finalTime = parsed.time || "";
+      const finalDur  = parseAndNormalizeDuration(parsed.duration || "");
+      const finalNotes= parsed.notes || "";
+      const b = mode==="today"?"today":"all";
+      tasks.push({id:nid++, text:finalText, done:false, bucket:b, time:finalTime, duration:finalDur, notes:finalNotes});
+      tclear();
+      await saveTasks();
+      render();
+      tp(`Added: "${finalText}"${finalDur?" ("+finalDur+")":""}${finalTime?" ["+finalTime+"]":""}`, "i");
+    } catch(err) {
+      tclear();
+      tp("Error parsing task: " + err.message, "e");
+    }
+    return;
+  }
+
+  if (v === "move") {
+    const tgt = parts[1];
+    if (!["all","today","tomorrow"].includes(tgt)) { tp("Usage: move all|today|tomorrow","e"); return; }
+    await moveSelected(tgt); return;
+  }
+
+  if (AI_PROMPTS[v]) {
+    tload();
+    try {
+      const res = await callGroq(AI_PROMPTS[v], summary());
+      tclear();
+      res.split("\n").filter(l => l.trim()).forEach(l => tp(l, "a"));
+    } catch(err) {
+      tclear(); tp("Error: " + err.message, "e");
+    }
+    return;
+  }
+
+  // Freeform chat fallback
+  tload();
+  try {
+    const res = await callGroq(cmd, summary());
+    tclear();
+    res.split("\n").filter(l => l.trim()).forEach(l => tp(l, "a"));
+  } catch(err) {
+    tclear(); tp("Error: " + err.message, "e");
+  }
+}
+
+document.getElementById("termIn").addEventListener("keydown", e => {
+  const inp = e.target;
+  if (e.key === "Enter")      { const v = inp.value.trim(); inp.value=""; run(v); }
+  else if (e.key==="ArrowUp") { e.preventDefault(); hi<ch.length-1 && (inp.value=ch[++hi]); }
+  else if (e.key==="ArrowDown"){ e.preventDefault(); hi>0?inp.value=ch[--hi]:(hi=-1,inp.value=""); }
+});
+
+// ── Menus ─────────────────────────────────────────────────────────────────────
+let activeMenu = null;
+function toggleMenu(id, el) {
+  const drop = document.getElementById(id);
+  if (activeMenu && activeMenu !== id) {
+    document.getElementById(activeMenu).style.display = "none";
+    document.querySelectorAll(".mitem").forEach(m => m.classList.remove("active"));
+  }
+  if (drop.style.display === "none") {
+    const rect = el.getBoundingClientRect();
+    drop.style.left = rect.left + "px";
+    drop.style.top  = rect.bottom + "px";
+    drop.style.display = "block";
+    el.classList.add("active");
+    activeMenu = id;
+  } else {
+    drop.style.display = "none";
+    el.classList.remove("active");
+    activeMenu = null;
+  }
+}
+function closeMenus() {
+  document.querySelectorAll(".mdrop").forEach(d => d.style.display="none");
+  document.querySelectorAll(".mitem").forEach(m => m.classList.remove("active"));
+  activeMenu = null;
+}
+document.addEventListener("click", e => {
+  if (!e.target.closest(".mitem") && !e.target.closest(".mdrop")) closeMenus();
+});
+
+let nightMode = true;
+document.body.classList.add("night");
+document.getElementById("nightCheck").textContent = "✓";
+function toggleNight() {
+  nightMode = !nightMode;
+  document.body.classList.toggle("night", nightMode);
+  document.getElementById("nightCheck").textContent = nightMode ? "✓" : " ";
+  closeMenus();
+}
+
+// ── Rubber Band ───────────────────────────────────────────────────────────────
+const rb = document.getElementById("rubberBand");
+let rbActive=false, rbOrigin={x:0,y:0}, rbPreSel=new Set();
+
+document.addEventListener("mousedown", e => {
+  const lb = e.target.closest(".listbox");
+  if (!lb || e.target.closest(".row") || e.button!==0) return;
+  rbActive=true; rbOrigin={x:e.clientX,y:e.clientY};
+  rbPreSel = e.ctrlKey||e.metaKey ? new Set(sel) : new Set();
+  if (!e.ctrlKey && !e.metaKey) { sel.clear(); render(); }
+  rb.style.cssText=`display:block;left:${rbOrigin.x}px;top:${rbOrigin.y}px;width:0;height:0;`;
+  e.preventDefault();
+});
+document.addEventListener("mousemove", e => {
+  if (!rbActive) return;
+  const x1=Math.min(e.clientX,rbOrigin.x), y1=Math.min(e.clientY,rbOrigin.y);
+  const x2=Math.max(e.clientX,rbOrigin.x), y2=Math.max(e.clientY,rbOrigin.y);
+  rb.style.left=x1+"px"; rb.style.top=y1+"px";
+  rb.style.width=(x2-x1)+"px"; rb.style.height=(y2-y1)+"px";
+  const newSel=new Set(rbPreSel);
+  document.querySelectorAll(".row[data-id]").forEach(rowEl=>{
+    const r=rowEl.getBoundingClientRect();
+    if(r.left<x2&&r.right>x1&&r.top<y2&&r.bottom>y1) newSel.add(+rowEl.dataset.id);
+  });
+  if(!setsEqual(newSel,sel)){sel=newSel;render();}
+});
+document.addEventListener("mouseup", ()=>{ if(!rbActive)return; rbActive=false; rb.style.display="none"; });
+document.addEventListener("scroll",  ()=>{ if(rbActive){rbActive=false;rb.style.display="none";} },true);
+window.addEventListener("blur",      ()=>{ if(rbActive){rbActive=false;rb.style.display="none";} });
+function setsEqual(a,b){if(a.size!==b.size)return false;for(const v of a)if(!b.has(v))return false;return true;}
+
+// ── Terminal Window ───────────────────────────────────────────────────────────
+function termMinimize() { document.getElementById("termWrap").classList.add("minimized"); }
+function termRestore()  { document.getElementById("termWrap").classList.remove("minimized"); }
+
+// ── Terminal Resize ───────────────────────────────────────────────────────────
+const termWrap = document.getElementById("termWrap");
+let isResizing = false, resizeType = null, startY = 0, startHeight = 0;
+
+termWrap.addEventListener("mousedown", (e) => {
+  const rect = termWrap.getBoundingClientRect();
+  const distFromTop    = e.clientY - rect.top;
+  const distFromBottom = rect.bottom - e.clientY;
+  if (distFromTop <= 6) {
+    isResizing=true; resizeType='top'; startY=e.clientY; startHeight=termWrap.offsetHeight;
+    document.body.style.cursor="row-resize"; e.preventDefault();
+  } else if (distFromBottom <= 6) {
+    isResizing=true; resizeType='bottom'; startY=e.clientY; startHeight=termWrap.offsetHeight;
+    document.body.style.cursor="row-resize"; e.preventDefault();
+  }
+});
+document.addEventListener("mousemove", (e) => {
+  if (!isResizing) return;
+  const diff = e.clientY - startY;
+  const newHeight = resizeType==='bottom' ? Math.max(100, startHeight+diff) : Math.max(100, startHeight-diff);
+  termWrap.style.height=newHeight+"px"; termWrap.style.minHeight=newHeight+"px"; termWrap.style.flexShrink="0";
+});
+document.addEventListener("mouseup", () => {
+  if (isResizing) { isResizing=false; resizeType=null; document.body.style.cursor="default"; }
+});
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+tp("Task Manager v3.0  [Groq + KTM Time]", "i");
+tp("Type 'help' for commands.", "a");
+render();
+</script>
+<script src="parsing.js"></script>
+<script src="prompts.js"></script>
+</body>
+</html>
